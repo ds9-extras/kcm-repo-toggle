@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Service
+Icon=help-about
+Exec=kcmshell5
+
+X-KDE-Library=kcm_channel_switch
+X-KDE-ServiceTypes=KCModule
+X-KDE-ParentApp=kinfocenter
+X-KDE-PluginKeyword=kcm-channel-switch
+X-KDE-Weight=0
+X-KDE-Keywords=information,distribution,distro,system,kernel,qt,kde
+Categories=Qt;KDE;X-KDE-settings-personalization;X-KDE-information;
+
+Name=About System
+Comment=Information About This System
