@@ -22,10 +22,6 @@
 #define MODULE_H
 
 #include <KCModule>
-namespace QApt {
-  class Backend;
-  class SourceList;
-}
 
 namespace Ui {
     class Module;
@@ -48,32 +44,31 @@ public:
     /**
      * Destructor.
      */
-    ~Module();
+    virtual ~Module();
 
     /**
      * Overloading the KCModule load() function.
      */
-    void load();
+    virtual void load();
 
     /**
      * Overloading the KCModule save() function.
      */
-    void save();
+    virtual void save();
 
     /**
      * Overloading the KCModule defaults() function.
      */
-    void defaults();
+    virtual void defaults();
 
 private:
     /**
      * UI
      */
     Ui::Module *ui;
-    QApt::Backend *m_backend;
-    QMap<QString, bool> m_distMap;
-    void populateDists();
-    void toggleChannel(int);
+
+    class Private;
+    Private* d;
 };
 
 #endif // MODULE_H

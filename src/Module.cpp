@@ -1,5 +1,6 @@
 /*
   Copyright (C) 2016 Rohan Garg <apachelogger@ubuntu.com>
+  Copyright (C) 2017 Dan Leinir Turthra Jensen <admin@leinir.dk>
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -19,31 +20,47 @@
 */
 
 #include "Module.h"
+
 #include "ui_Module.h"
 #include "Version.h"
 #include "OSRelease.h"
 
-#include <QDebug>
-#include <QCheckBox>
-#include <QHash>
-
-#include <KAboutData>
-#include <KConfig>
-#include <KCoreAddons>
-#include <QApt/SourcesList>
 #include <QApt/Backend>
 #include <QApt/Config>
-#include <QJsonDocument>
+
+#include <KAboutData>
+#include <KMessageBox>
+#include <KAuth/KAuthExecuteJob>
+
+#include <QDebug>
+#include <QCheckBox>
+#include <QDir>
 #include <QFile>
+#include <QStandardPaths>
 #include <QVariantMap>
 
-Module::Module(QWidget *parent, const QVariantList &args) :
-    KCModule(parent, args),
-    ui(new Ui::Module),
-    m_backend(new QApt::Backend)
+class Module::Private {
+public:
+    Private(Module* qq)
+        : q(qq)
+        , backend(new QApt::Backend)
+    {
+        backend->init();
+    }
+    Module* q;
+    QApt::Backend *backend;
+    void populateSources();
+    void checkCheckStates();
+
+};
+
+Module::Module(QWidget *parent, const QVariantList &args)
+    : KCModule(parent, args)
+    , ui(new Ui::Module)
+    , d(new Private(this))
 {
-    KAboutData *aboutData = new KAboutData(QStringLiteral("kcm-channel-switch"),
-                                           i18nc("@title", "Distribution Channel switcher"),
+    KAboutData *aboutData = new KAboutData(QStringLiteral("kcmchannelswitch"),
+                                           i18nc("@title", "Software Channels"),
                                            global_s_versionStringFull,
                                            QStringLiteral(""),
                                            KAboutLicense::LicenseKey::GPL_V3,
@@ -52,13 +69,14 @@ Module::Module(QWidget *parent, const QVariantList &args) :
     aboutData->addAuthor(i18nc("@info:credit", "Rohan Garg"),
                          i18nc("@info:credit", "Author"),
                          QStringLiteral("rohan@kde.org"));
+    aboutData->addAuthor(i18nc("@info:credit", "Dan Leinir Turthra Jensen"),
+                         i18nc("@info:credit", "Author"),
+                         QStringLiteral("admin@leinir.dk"));
 
     setAboutData(aboutData);
 
     ui->setupUi(this);
-    m_backend->init();
-    populateDists();
-
+    setNeedsAuthorization(true);
 
     // We have no help so remove the button from the buttons.
     setButtons(buttons() ^ KCModule::Help ^ KCModule::Default ^ KCModule::Apply);
@@ -66,60 +84,130 @@ Module::Module(QWidget *parent, const QVariantList &args) :
 
 Module::~Module()
 {
+    delete d;
     delete ui;
 }
 
-void Module::populateDists()
+void Module::Private::populateSources()
 {
-  QApt::SourcesList list;
-  for (auto const &entry : list.entries()) {
-    m_distMap[entry.dist()] = entry.isEnabled();
-  }
+    // clear existing checkboxes, if there are any...
+    while(q->ui->verticalLayout->count() > 0) {
+        QLayoutItem* item = q->ui->verticalLayout->takeAt(0);
+        delete item->widget();
+        delete item;
+    }
+
+    QMap<QString, QString> sldEntries;
+    QString sldDir(backend->config()->findDirectory("Dir::Etc::sourceparts", QLatin1String("/etc/apt/sources.list.d/")));
+    QDir sld(sldDir);
+    if(sld.exists()) {
+        for(auto const &entry : sld.entryList(QDir::Files)) {
+            QFile file(QString("%1/%2").arg(sldDir).arg(entry));
+            if(file.open(QIODevice::ReadOnly)) {
+                sldEntries[entry] = file.readAll();
+                file.close();
+            }
+        }
+    }
+
+    OSRelease os;
+    QStringList paths = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
+    for(QString const& path : paths) {
+        QString channelsPath = QString("%1/release-channels/channels/%2").arg(path).arg(os.name);
+        QDir channels(channelsPath);
+        if(channels.exists()) {
+            for(QString const& channel : channels.entryList(QDir::Files)) {
+                QCheckBox *checkbox = new QCheckBox(channel);
+                QFile file(QString("%1/%2").arg(channelsPath).arg(channel));
+                QString contents;
+                if(file.open(QIODevice::ReadOnly)) {
+                    contents = file.readAll();
+                    file.close();
+                }
+                QStringList lines = contents.split("\n");
+                // Is the first line a comment? Use that as the title
+                if(lines[0].startsWith("#")) {
+                    checkbox->setText(lines[0].mid(1).trimmed());
+                }
+                // How about the second line? That'll be our description
+                if(lines.length() > 1 && lines[1].startsWith("#")) {
+                    checkbox->setToolTip(lines[1].mid(1).trimmed());
+                }
+                checkbox->setProperty("currentState", Qt::Unchecked);
+                // if file exists in /etc/apt/sources.lists.d/...
+                if(sldEntries.contains(channel)) {
+                    // and is identical to our file, check box...
+                    if(contents == sldEntries[channel]) {
+                        checkbox->setCheckState(Qt::Checked);
+                        checkbox->setProperty("currentState", Qt::Checked);
+                    }
+                    // and is different from our file, disable, describe error
+                    // nb: this also ensures we can handle two channels with the same .lists filename... just don't
+                    // enable the one that would otherwise replace what is already there. Needs saying in the UI somehow.
+                    else {
+                        checkbox->setEnabled(false);
+                        checkbox->setToolTip(i18nc("Checkbox tool tip which shows when the contents differ between the channel's .lists file and the .lists file with the same name in apt's soources.lists.d", "This entry cannot be enabled, as a channel with this filename already exists, but the contents differ."));
+                    }
+                }
+                q->ui->verticalLayout->addWidget(checkbox);
+                checkbox->setProperty("channelFile", channel);
+                checkbox->setProperty("channelsDir", channelsPath);
+                q->connect(checkbox, &QCheckBox::stateChanged, [this](){checkCheckStates();});
+            }
+        }
+    }
+}
+
+// Let's make sure we don't let people apply/ok when there's nothing to save
+void Module::Private::checkCheckStates()
+{
+    bool changed = false;
+    for(int i = 0; i < q->ui->verticalLayout->count(); ++i) {
+        QCheckBox* checkbox = qobject_cast<QCheckBox*>(q->ui->verticalLayout->itemAt(i)->widget());
+        if(checkbox && checkbox->checkState() != checkbox->property("currentState").value<Qt::CheckState>()) {
+            changed = true;
+            break;
+        }
+    }
+    q->changed(changed);
 }
 
 void Module::load()
 {
-  OSRelease os;
-  QFile file;
-  file.setFileName("/usr/share/release-channels/Netrunner.json");
-  file.open(QIODevice::ReadOnly | QIODevice::Text);
-  auto val = file.readAll();
-  file.close();
-  QJsonDocument d = QJsonDocument::fromJson(val);
-  auto jsonObject = d.toVariant();
-  auto map = jsonObject.value<QVariantMap>();
-  auto releaseMap = map[os.name].value<QVariantMap>();
-  auto baseURI = releaseMap["BaseURI"].value<QString>();
-  auto repos = releaseMap["Repos"].value<QStringList>();
-  auto channelsMap = releaseMap["Releases"].value<QVariantList>();
-  for (auto const &entry : channelsMap) {
-    auto entryMap = entry.value<QVariantMap>();
-    auto description = entryMap["Description"].value<QString>();
-    auto dist = entryMap["dist"].value<QString>();
-    QCheckBox *checkbox = new QCheckBox(description);
-    if (m_distMap[dist])
-      checkbox->setCheckState(Qt::Checked);
-    ui->verticalLayout->addWidget(checkbox);
-    checkbox->setProperty("dist", dist);
-    checkbox->setProperty("baseURI", baseURI);
-    checkbox->setProperty("repos", repos);
-    connect(checkbox, &QCheckBox::stateChanged, this, &Module::toggleChannel);
-  }
-}
-
-void Module::toggleChannel(int state)
-{
-  QCheckBox *checkbox = qobject_cast<QCheckBox*>(sender());
-  auto dist = checkbox->property("dist").value<QString>();
-  auto baseURI = checkbox->property("baseURI").value<QString>();
-  auto repos = checkbox->property("repos").value<QString>();
-  qDebug() << dist << baseURI << repos;
+    d->populateSources();
 }
 
 void Module::save()
 {
+    QVariantMap helperargs;
+    for(int i = 0; i < ui->verticalLayout->count(); ++i) {
+        QCheckBox* checkbox = qobject_cast<QCheckBox*>(ui->verticalLayout->itemAt(i)->widget());
+        if(checkbox) {
+            if(checkbox->checkState() != checkbox->property("currentState").value<Qt::CheckState>()) {
+                auto channelFile = checkbox->property("channelFile").value<QString>();
+                auto channelDir = checkbox->property("channelsDir").value<QString>();
+                helperargs[QString("%1/%2").arg(channelDir).arg(channelFile)] = checkbox->checkState();
+            }
+        }
+    }
+
+    if(!helperargs.isEmpty()) {
+        KAuth::Action action = authAction();
+        action.setHelperId("org.kde.kcontrol.kcmchannelswitch");
+        action.setArguments(helperargs);
+
+        KAuth::ExecuteJob* job = action.execute();
+        if(!job->exec()) {
+            KMessageBox::error(this, i18nc("The text used to describe an error which occurred when attempting to save the software channels setup to the user", "An error occurred when attempting to save the changes. The reported error was: %1").arg(job->errorText()), i18nc("Title for the error dialog when saving changes to the software channels setup", "Error saving software channels"));
+        }
+        // If we are not OKing here, only applying, this potentially becomes terribly useful, as we
+        // may have .lists files with the same name. So, clear things up, so we can get impossible
+        // selections disabled
+        d->populateSources();
+    }
 }
 
 void Module::defaults()
 {
+    d->populateSources();
 }
