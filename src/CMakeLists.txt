@@ -16,7 +16,6 @@ add_library(kcmchannelswitch MODULE ${kcm_SRCS})
 target_link_libraries(kcmchannelswitch
     Qt5::Core
     KF5::ConfigWidgets
-    KF5::CoreAddons
     KF5::I18n
     QApt
 )
