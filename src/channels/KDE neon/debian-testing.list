@@ -1,0 +1,3 @@
+# Debian Testing
+# A rolling release of packages for debian based systems
+deb http://deb.debian.org/debian testing main contrib non-free
