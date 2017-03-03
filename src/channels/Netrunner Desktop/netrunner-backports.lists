@@ -1,3 +1,0 @@
-# Netrunner Backports
-# A selection of software released after the current Netrunner release
-deb http://ds9-eu.s3-website.eu-central-1.amazonaws.com/dci/packages/ stretch-backports main
