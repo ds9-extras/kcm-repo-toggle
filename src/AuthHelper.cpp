@@ -71,4 +71,4 @@ ActionReply Helper::save(const QVariantMap& args)
     return reply;
 }
 
-KAUTH_HELPER_MAIN("org.kde.kcontrol.kcmchannelswitch", Helper)
+KAUTH_HELPER_MAIN("org.kde.kcontrol.kcmrepotoggle", Helper)

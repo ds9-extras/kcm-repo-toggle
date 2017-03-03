@@ -59,7 +59,7 @@ Module::Module(QWidget *parent, const QVariantList &args)
     , ui(new Ui::Module)
     , d(new Private(this))
 {
-    KAboutData *aboutData = new KAboutData(QStringLiteral("kcmchannelswitch"),
+    KAboutData *aboutData = new KAboutData(QStringLiteral("kcmrepotoggle"),
                                            i18nc("@title", "Software Channels"),
                                            global_s_versionStringFull,
                                            QStringLiteral(""),
@@ -116,7 +116,8 @@ void Module::Private::populateSources()
     OSRelease os;
     QStringList paths = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
     for(QString const& path : paths) {
-        QStringList channelTypes = QStringList() << QString("%1/release-channels/channels/general-use").arg(path) << QString("%1/release-channels/channels/%2").arg(path).arg(os.name);
+        // One hard-coded channel, and one for the distribution we're actually running on
+        const QStringList channelTypes = QStringList() << QString("%1/release-channels/channels/general-use").arg(path) << QString("%1/release-channels/channels/%2").arg(path).arg(os.name);
         for(QString const &channelsPath : channelTypes) {
             QDir channels(channelsPath);
             if(channels.exists()) {
@@ -203,7 +204,7 @@ void Module::save()
 
     if(!helperargs.isEmpty()) {
         KAuth::Action action = authAction();
-        action.setHelperId("org.kde.kcontrol.kcmchannelswitch");
+        action.setHelperId("org.kde.kcontrol.kcmrepotoggle");
         action.setArguments(helperargs);
 
         KAuth::ExecuteJob* job = action.execute();

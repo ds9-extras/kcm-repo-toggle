@@ -23,6 +23,6 @@
 #include "Module.h"
 
 K_PLUGIN_FACTORY(KcmAboutDistroFactory,
-                 registerPlugin<Module>("kcmchannelswitch");)
+                 registerPlugin<Module>("kcmrepotoggle");)
 
 #include "main.moc"

@@ -3,10 +3,10 @@ Type=Service
 Icon=system-software-install
 Exec=kcmshell5
 
-X-KDE-Library=kcmchannelswitch
+X-KDE-Library=kcmrepotoggle
 X-KDE-ServiceTypes=KCModule
 X-KDE-ParentApp=kcontrol
-X-KDE-PluginKeyword=kcmchannelswitch
+X-KDE-PluginKeyword=kcmrepotoggle
 X-KDE-Weight=0
 X-KDE-Keywords=information,distribution,distro,system,kernel,qt,kde
 X-KDE-System-Settings-Parent-Category=personalization

@@ -3,7 +3,7 @@ Name=Software Channel Switcher
 Icon=kauth-example
 URL=http://kde.org/
 
-[org.kde.kcontrol.kcmchannelswitch.save]
+[org.kde.kcontrol.kcmrepotoggle.save]
 Name=Save Settings
 Description=Save the settings in the software channel switcher
 Policy=auth_admin
