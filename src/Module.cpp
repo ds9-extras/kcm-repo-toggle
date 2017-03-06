@@ -113,11 +113,21 @@ void Module::Private::populateSources()
         }
     }
 
+    // WARNING Hack time, because we might very well end up with an os-release file that isn't quite right...
+    // Not keen on adding heuristics, but... if we must, then we must.
+    QString realOsName;
+    if(QFile::exists("/usr/share/netrunner-desktop-settings")) {
+        realOsName = QLatin1String("Netrunner Desktop");
+    }
+
     OSRelease os;
     QStringList paths = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
     for(QString const& path : paths) {
         // One hard-coded channel, and one for the distribution we're actually running on
-        const QStringList channelTypes = QStringList() << QString("%1/release-channels/channels/general-use").arg(path) << QString("%1/release-channels/channels/%2").arg(path).arg(os.name);
+        QStringList channelTypes = QStringList() << QString("%1/release-channels/channels/general-use").arg(path) << QString("%1/release-channels/channels/%2").arg(path).arg(os.name);
+        if(realOsName != os.name) {
+            channelTypes << QString("%1/release-channels/channels/%2").arg(path).arg(realOsName);
+        }
         for(QString const &channelsPath : channelTypes) {
             QDir channels(channelsPath);
             if(channels.exists()) {
