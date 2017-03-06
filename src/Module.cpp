@@ -123,6 +123,7 @@ void Module::Private::populateSources()
             if(channels.exists()) {
                 for(QString const& channel : channels.entryList(QDir::Files)) {
                     QCheckBox *checkbox = new QCheckBox(channel);
+                    q->ui->verticalLayout->addWidget(checkbox);
                     QFile file(QString("%1/%2").arg(channelsPath).arg(channel));
                     QString contents;
                     if(file.open(QIODevice::ReadOnly)) {
@@ -136,10 +137,11 @@ void Module::Private::populateSources()
                     }
                     // How about the second line? That'll be our description
                     if(lines.length() > 1 && lines[1].startsWith("#")) {
-                        checkbox->setToolTip(lines[1].mid(1).trimmed());
+                        QLabel* descLabel = new QLabel(lines[1].mid(1).trimmed());
+                        descLabel->setWordWrap(true);
+                        q->ui->verticalLayout->addWidget(descLabel);
                     }
                     checkbox->setProperty("currentState", Qt::Unchecked);
-                    q->ui->verticalLayout->addWidget(checkbox);
                     // if file exists in /etc/apt/sources.lists.d/...
                     if(sldEntries.contains(channel)) {
                         // and is identical to our file, check box...
