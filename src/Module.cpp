@@ -180,6 +180,7 @@ void Module::Private::populateSources()
             }
         }
     }
+    q->ui->verticalLayout->addStretch();
 }
 
 // Let's make sure we don't let people apply/ok when there's nothing to save
