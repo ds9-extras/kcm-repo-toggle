@@ -173,8 +173,7 @@ void Module::Private::populateSources()
                             // other (if it's not represented by another channel...) - this will need thorough thought.
                         }
                     }
-                    checkbox->setProperty("channelFile", channel);
-                    checkbox->setProperty("channelsDir", channelsPath);
+                    checkbox->setProperty("channelFile", QString("%1/%2").arg(channelsPath).arg(channel));
                     q->connect(checkbox, &QCheckBox::stateChanged, [this](){checkCheckStates();});
                 }
             }
@@ -209,9 +208,7 @@ void Module::save()
         QCheckBox* checkbox = qobject_cast<QCheckBox*>(ui->verticalLayout->itemAt(i)->widget());
         if(checkbox) {
             if(checkbox->checkState() != checkbox->property("currentState").value<Qt::CheckState>()) {
-                auto channelFile = checkbox->property("channelFile").value<QString>();
-                auto channelDir = checkbox->property("channelsDir").value<QString>();
-                helperargs[QString("%1/%2").arg(channelDir).arg(channelFile)] = checkbox->checkState();
+                helperargs[checkbox->property("channelFile").value<QString>()] = checkbox->checkState();
             }
         }
     }
