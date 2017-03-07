@@ -1,16 +1,16 @@
 [Desktop Entry]
 Type=Service
 Icon=system-software-install
-Exec=kcmshell5
+Exec=kcmshell5 kcmrepotoggle
 
 X-KDE-Library=kcmrepotoggle
 X-KDE-ServiceTypes=KCModule
 X-KDE-ParentApp=kcontrol
 X-KDE-PluginKeyword=kcmrepotoggle
 X-KDE-Weight=0
-X-KDE-Keywords=information,distribution,distro,system,kernel,qt,kde
-X-KDE-System-Settings-Parent-Category=personalization
-Categories=Qt;KDE;X-KDE-settings-personalization;X-KDE-information;
+X-KDE-Keywords=distribution,distro,system,kernel,qt,kde
+X-KDE-System-Settings-Parent-Category=system-administration
+Categories=Qt;KDE;X-KDE-settings-system-administration;
 
 Name=Software Channels
 Comment=Switch different channels for getting software on and off
