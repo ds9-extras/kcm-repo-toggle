@@ -79,7 +79,8 @@ Module::Module(QWidget *parent, const QVariantList &args)
     setNeedsAuthorization(true);
 
     // We have no help so remove the button from the buttons.
-    setButtons(buttons() ^ KCModule::Help ^ KCModule::Default ^ KCModule::Apply);
+    // We also have no defaults, so get rid of that as well.
+    setButtons(buttons() ^ KCModule::Help ^ KCModule::Default);
 }
 
 Module::~Module()
