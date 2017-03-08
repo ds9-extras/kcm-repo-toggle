@@ -1,6 +1,5 @@
 # Netrunner Backports
 # A selection of software released after the current Netrunner release
-deb http://deb.debian.org/debian testing main contrib non-free
 deb http://ds9-eu.s3-website.eu-central-1.amazonaws.com/dci/packages/netrunner/ stretch-backports main
 deb http://ds9-eu.s3-website.eu-central-1.amazonaws.com/dci/packages/extras/ stretch-backports main
 deb http://ds9-eu.s3-website.eu-central-1.amazonaws.com/dci/packages/calamares/ stretch-backports main
