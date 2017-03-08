@@ -25,6 +25,7 @@
 #include <QApt/Backend>
 #include <QApt/Config>
 
+#include <QCoreApplication>
 #include <QDebug>
 #include <QFile>
 
@@ -68,7 +69,33 @@ ActionReply Helper::save(const QVariantMap& args)
         }
     }
 
+    QApt::Transaction* updateTransaction = backend->updateCache();
+    connect(updateTransaction, SIGNAL(progressChanged(int)), this, SLOT(updatePercentage(int)));
+    connect(updateTransaction, SIGNAL(statusChanged(QApt::TransactionStatus)), this, SLOT(statusChanged(QApt::TransactionStatus)));
+    updateTransaction->run();
+
+    while(updateTransaction->status() != QApt::FinishedStatus) {
+        qApp->processEvents();
+    }
+
     return reply;
 }
+
+void Helper::updatePercentage(int percent)
+{
+    HelperSupport::progressStep(percent);
+}
+
+void Helper::statusChanged(QApt::TransactionStatus status)
+{
+    QApt::Transaction* updateTransaction = qobject_cast<QApt::Transaction*>(sender());
+    if(status == QApt::FinishedStatus) {
+        QVariantMap newStatus;
+        newStatus["status"] = updateTransaction->status();
+        newStatus["statusDetails"] = updateTransaction->statusDetails();
+        HelperSupport::progressStep(newStatus);
+    }
+}
+
 
 KAUTH_HELPER_MAIN("org.kde.kcontrol.kcmrepotoggle", Helper)

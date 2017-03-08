@@ -24,6 +24,7 @@
 #include <QFile>
 
 #include <KAuth>
+#include <QApt/Transaction>
 
 using namespace KAuth;
 
@@ -32,6 +33,8 @@ class Helper : public QObject
     Q_OBJECT
 public Q_SLOTS:
     ActionReply save(const QVariantMap& args);
+    void updatePercentage(int percent);
+    void statusChanged(QApt::TransactionStatus status);
 };
 
 #endif//AUTHHELPER_H
