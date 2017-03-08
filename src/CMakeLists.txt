@@ -36,4 +36,4 @@ install(TARGETS kcmrepotoggleauthhelper DESTINATION ${KAUTH_HELPER_INSTALL_DIR})
 
 install(TARGETS kcmrepotoggle DESTINATION ${PLUGIN_INSTALL_DIR})
 install(FILES kcmrepotoggle.desktop DESTINATION ${SERVICES_INSTALL_DIR})
-install(DIRECTORY channels DESTINATION ${KDE_INSTALL_DATADIR}/release-channels/)
+install(DIRECTORY channels DESTINATION ${KDE_INSTALL_DATADIR}/release-channels)
