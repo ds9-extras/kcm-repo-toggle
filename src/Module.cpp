@@ -38,12 +38,14 @@
 #include <QFile>
 #include <QStandardPaths>
 #include <QVariantMap>
+#include <QProgressBar>
 
 class Module::Private {
 public:
     Private(Module* qq)
         : q(qq)
         , backend(new QApt::Backend)
+        , progress(0)
     {
         backend->init();
     }
@@ -52,6 +54,10 @@ public:
     void populateSources();
     void checkCheckStates();
 
+    void saveCompleted(KJob* job);
+    void saveJobStatusChanged(KAuth::ExecuteJob* saveJob, KAuth::Action::AuthStatus status);
+    void saveJobNewData(const QVariantMap& data);
+    QProgressBar* progress;
 };
 
 Module::Module(QWidget *parent, const QVariantList &args)
@@ -205,10 +211,16 @@ void Module::save()
 {
     QVariantMap helperargs;
     for(int i = 0; i < ui->verticalLayout->count(); ++i) {
-        QCheckBox* checkbox = qobject_cast<QCheckBox*>(ui->verticalLayout->itemAt(i)->widget());
-        if(checkbox) {
-            if(checkbox->checkState() != checkbox->property("currentState").value<Qt::CheckState>()) {
-                helperargs[checkbox->property("channelFile").value<QString>()] = checkbox->checkState();
+        // Because we will flush all of these later, disable them now and we won't have
+        // to do any further magic to make the progress bar enabled
+        QWidget* widget = ui->verticalLayout->itemAt(i)->widget();
+        if(widget) {
+            widget->setEnabled(false);
+            QCheckBox* checkbox = qobject_cast<QCheckBox*>(widget);
+            if(checkbox) {
+                if(checkbox->checkState() != checkbox->property("currentState").value<Qt::CheckState>()) {
+                    helperargs[checkbox->property("channelFile").value<QString>()] = checkbox->checkState();
+                }
             }
         }
     }
@@ -217,16 +229,67 @@ void Module::save()
         KAuth::Action action = authAction();
         action.setHelperId("org.kde.kcontrol.kcmrepotoggle");
         action.setArguments(helperargs);
+        action.setTimeout(1000 * 60 * 20); // twenty minutes... TODO Add a way to cancel this action, because that's a long time...
 
-        KAuth::ExecuteJob* job = action.execute();
-        if(!job->exec()) {
-            KMessageBox::error(this, i18nc("The text used to describe an error which occurred when attempting to save the software channels setup to the user", "An error occurred when attempting to save the changes. The reported error was: %1").arg(job->errorText()), i18nc("Title for the error dialog when saving changes to the software channels setup", "Error saving software channels"));
+        d->progress = new QProgressBar(this);
+        ui->verticalLayout->insertWidget(0, d->progress);
+        QLabel* pleaseWait = new QLabel(i18nc("Label above the progress bar when updating the sources after changing the settings", "Please wait while updating your package cache..."), this);
+        ui->verticalLayout->insertWidget(0, pleaseWait);
+
+        KAuth::ExecuteJob* saveJob = action.execute();
+
+        connect(saveJob, &KJob::result, this, [this](KJob* job){ d->saveCompleted(job); });
+        connect(saveJob, &KAuth::ExecuteJob::statusChanged, this, [saveJob, this](KAuth::Action::AuthStatus status){ d->saveJobStatusChanged(saveJob, status); });
+        connect(saveJob, &KAuth::ExecuteJob::newData, this, [this](QVariantMap data){ d->saveJobNewData(data); });
+        connect(saveJob, SIGNAL(percent(KJob*, unsigned long)), this, SLOT(percentChanged(KJob*, unsigned long)));
+
+        if(!saveJob->exec()){
+            KMessageBox::error(this, i18nc("The text used to describe an error which occurred when attempting to save the software channels setup to the user", "An error occurred when attempting to save the changes. The reported error was: %1").arg(saveJob->errorText()), i18nc("Title for the error dialog when saving changes to the software channels setup", "Error saving software channels"));
         }
-        // If we are not OKing here, only applying, this potentially becomes terribly useful, as we
-        // may have .lists files with the same name. So, clear things up, so we can get impossible
-        // selections disabled
-        d->populateSources();
     }
+
+    // If we are not OKing here, only applying, this potentially becomes terribly useful, as we
+    // may have .lists files with the same name. So, clear things up, so we can get impossible
+    // selections disabled
+    d->populateSources();
+}
+
+void Module::percentChanged(KJob* /*job*/, unsigned long percent)
+{
+    if(percent > 100) {
+        d->progress->setMaximum(0);
+    }
+    else {
+        d->progress->setMaximum(100);
+        d->progress->setValue(percent);
+    }
+}
+
+void Module::Private::saveJobStatusChanged(KAuth::ExecuteJob* saveJob, KAuth::Action::AuthStatus status)
+{
+    switch(status) {
+    case KAuth::Action::DeniedStatus:
+    case KAuth::Action::ErrorStatus:
+    case KAuth::Action::InvalidStatus:
+        KMessageBox::error(q, i18nc("The text used to describe an error which occurred when attempting to save the software channels setup to the user", "An error occurred when attempting to save the changes. The reported error was: %1").arg(saveJob->errorText()), i18nc("Title for the error dialog when saving changes to the software channels setup", "Error saving software channels"));
+        break;
+    case KAuth::Action::UserCancelledStatus:
+    case KAuth::Action::AuthRequiredStatus:
+    case KAuth::Action::AuthorizedStatus:
+    default:
+        break;
+    }
+}
+
+void Module::Private::saveCompleted(KJob* /*job*/)
+{
+    progress = 0;
+}
+
+void Module::Private::saveJobNewData(const QVariantMap& /*data*/)
+{
+//     qDebug() << "New data" << data;
+    // This would be nice at a later point in time... for now, we're not using this.
 }
 
 void Module::defaults()

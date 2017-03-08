@@ -29,6 +29,7 @@ namespace Ui {
 
 #include <QMap>
 
+class KJob;
 class Module : public KCModule
 {
     Q_OBJECT
@@ -61,6 +62,10 @@ public:
      */
     virtual void defaults();
 
+    /**
+     * Progress update from our worker
+     */
+    Q_SLOT void percentChanged(KJob* job, unsigned long percent);
 private:
     /**
      * UI
