@@ -37,6 +37,9 @@ ActionReply Helper::save(const QVariantMap& args)
     backend->init();
     QString sldDir(backend->config()->findDirectory("Dir::Etc::sourceparts", QLatin1String("/etc/apt/sources.list.d/")));
     for(const QString& key : args.keys()) {
+        if(key == QLatin1String("/refreshCache")) {
+            continue;
+        }
         QString listsFile = QString("%1/%2").arg(sldDir).arg(key.split("/").last());
         bool result = false;
         switch(args.value(key).toInt()) {
@@ -69,13 +72,23 @@ ActionReply Helper::save(const QVariantMap& args)
         }
     }
 
-    QApt::Transaction* updateTransaction = backend->updateCache();
-    connect(updateTransaction, SIGNAL(progressChanged(int)), this, SLOT(updatePercentage(int)));
-    connect(updateTransaction, SIGNAL(statusChanged(QApt::TransactionStatus)), this, SLOT(statusChanged(QApt::TransactionStatus)));
-    updateTransaction->run();
+    if(args.value(QLatin1String("/refreshCache")).toInt() == 2) {
+        QApt::Transaction* updateTransaction = backend->updateCache();
+        connect(updateTransaction, SIGNAL(progressChanged(int)), this, SLOT(updatePercentage(int)));
+        connect(updateTransaction, SIGNAL(statusChanged(QApt::TransactionStatus)), this, SLOT(statusChanged(QApt::TransactionStatus)));
+        updateTransaction->run();
 
-    while(updateTransaction->status() != QApt::FinishedStatus) {
-        qApp->processEvents();
+        bool cancelBegun = false;
+        while(updateTransaction->status() != QApt::FinishedStatus) {
+            if(!cancelBegun && HelperSupport::isStopped()) {
+                qDebug() << "Cancel requested, telling updateTransaction to stop, if it can." << updateTransaction->isCancellable();
+                if(updateTransaction->isCancellable()) {
+                    updateTransaction->cancel();
+                    cancelBegun = true;
+                }
+            }
+            qApp->processEvents();
+        }
     }
 
     return reply;
