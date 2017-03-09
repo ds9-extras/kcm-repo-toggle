@@ -196,13 +196,17 @@ void Module::Private::populateSources()
         }
     }
     q->ui->verticalLayout->addStretch();
+    QCheckBox* refreshCheck = new QCheckBox(i18nc("Title label for the checkbox which causes an apt cache refresh when applying the new settings", "Refresh cache when applying"));
+    refreshCheck->setToolTip(i18nc("Tooltip text for the checkbox which causes an apt cache refresh when applying the new settings", "Enabling this will cause the local cache of the software channels to be downloaded when applying new settings. This may cause a large amount of data to be downloaded (up to a couple of hundred MiB)."));
+    refreshCheck->setCheckState(Qt::Checked);
+    q->ui->verticalLayout->addWidget(refreshCheck);
 }
 
 // Let's make sure we don't let people apply/ok when there's nothing to save
 void Module::Private::checkCheckStates()
 {
     bool changed = false;
-    for(int i = 0; i < q->ui->verticalLayout->count(); ++i) {
+    for(int i = 0; i < q->ui->verticalLayout->count() - 1; ++i) {
         QCheckBox* checkbox = qobject_cast<QCheckBox*>(q->ui->verticalLayout->itemAt(i)->widget());
         if(checkbox && checkbox->checkState() != checkbox->property("currentState").value<Qt::CheckState>()) {
             changed = true;
@@ -220,7 +224,7 @@ void Module::load()
 void Module::save()
 {
     QVariantMap helperargs;
-    for(int i = 0; i < ui->verticalLayout->count(); ++i) {
+    for(int i = 0; i < ui->verticalLayout->count() - 1; ++i) {
         // Because we will flush all of these later, disable them now and we won't have
         // to do any further magic to make the progress bar enabled
         QWidget* widget = ui->verticalLayout->itemAt(i)->widget();
@@ -236,42 +240,52 @@ void Module::save()
     }
 
     if(!helperargs.isEmpty()) {
+        QCheckBox* refreshCheck = qobject_cast<QCheckBox*>(ui->verticalLayout->itemAt(ui->verticalLayout->count() - 1)->widget());
+        refreshCheck->setEnabled(false);
+        helperargs["/refreshCache"] = refreshCheck->checkState();
+
         KAuth::Action action = authAction();
         action.setHelperId("org.kde.kcontrol.kcmrepotoggle");
         action.setArguments(helperargs);
         action.setTimeout(1000 * 60 * 20); // twenty minutes... TODO Add a way to cancel this action, because that's a long time...
 
-        QGridLayout* grid = new QGridLayout();
-        QLabel* pleaseWait = new QLabel(i18nc("Label above the progress bar when updating the sources after changing the settings", "Please wait while updating your package cache..."), this);
-        grid->addWidget(pleaseWait, 0, 0);
-        d->progress = new QProgressBar(this);
-        ui->verticalLayout->insertWidget(0, d->progress);
-        grid->addWidget(d->progress, 1, 0);
-        QPushButton* cancelRefresh = new QPushButton(this);
-        cancelRefresh->setIcon(QIcon::fromTheme("dialog-cancel"));
-        grid->addWidget(cancelRefresh, 0, 1, 2, 1);
-        ui->verticalLayout->insertLayout(0, grid);
-
         KAuth::ExecuteJob* saveJob = action.execute();
+        if(refreshCheck->checkState() == Qt::Checked) {
+            QGridLayout* grid = new QGridLayout();
+            QLabel* pleaseWait = new QLabel(i18nc("Label above the progress bar when updating the sources after changing the settings", "Please wait while updating your package cache..."), this);
+            grid->addWidget(pleaseWait, 0, 0);
+            d->progress = new QProgressBar(this);
+            ui->verticalLayout->insertWidget(0, d->progress);
+            grid->addWidget(d->progress, 1, 0);
+            QPushButton* cancelRefresh = new QPushButton(this);
+            cancelRefresh->setIcon(QIcon::fromTheme("dialog-cancel"));
+            grid->addWidget(cancelRefresh, 0, 1, 2, 1);
+            ui->verticalLayout->insertLayout(0, grid);
+            connect(cancelRefresh, &QPushButton::clicked, saveJob, [saveJob](){
+                saveJob->kill(KJob::EmitResult);
+                // The above /should/ really do the trick... and because what's below doesn't work because HelperProxy is
+                // not exported, cancelling does not currently work. Fun-fun. Will need to fix that in KAuth itself.
+                // KAuth::HelperProxy::stopAction("org.kde.kcontrol.kcmrepotoggle", "org.kde.kcontrol.kcmrepotoggle.save");
+                // Thoughts on this: Really would be nice to have the normal job kill code work, because
+                // having this API different for no appreciable reason seems very strange to me. There is
+                // nothing inherent in KAuth that means this has to somehow be different normal KJob code.
+            });
+        }
 
         connect(saveJob, &KJob::result, this, [this](KJob* job){ d->saveCompleted(job); });
         connect(saveJob, &KAuth::ExecuteJob::statusChanged, this, [saveJob, this](KAuth::Action::AuthStatus status){ d->saveJobStatusChanged(saveJob, status); });
         connect(saveJob, &KAuth::ExecuteJob::newData, this, [this](QVariantMap data){ d->saveJobNewData(data); });
         connect(saveJob, SIGNAL(percent(KJob*, unsigned long)), this, SLOT(percentChanged(KJob*, unsigned long)));
 
-        if(!saveJob->exec()){
-            KMessageBox::error(this, i18nc("The text used to describe an error which occurred when attempting to save the software channels setup to the user", "An error occurred when attempting to save the changes. The reported error was: %1").arg(saveJob->errorText()), i18nc("Title for the error dialog when saving changes to the software channels setup", "Error saving software channels"));
-        }
+        saveJob->start();
     }
-
-    // If we are not OKing here, only applying, this potentially becomes terribly useful, as we
-    // may have .lists files with the same name. So, clear things up, so we can get impossible
-    // selections disabled
-    d->populateSources();
 }
 
 void Module::percentChanged(KJob* /*job*/, unsigned long percent)
 {
+    if(!d->progress) {
+        return;
+    }
     if(percent > 100) {
         d->progress->setMaximum(0);
     }
@@ -299,6 +313,10 @@ void Module::Private::saveJobStatusChanged(KAuth::ExecuteJob* saveJob, KAuth::Ac
 
 void Module::Private::saveCompleted(KJob* /*job*/)
 {
+    // If we are not OKing here, only applying, this potentially becomes terribly useful, as we
+    // may have .lists files with the same name. So, clear things up, so we can get impossible
+    // selections disabled
+    populateSources();
     progress = 0;
 }
 
