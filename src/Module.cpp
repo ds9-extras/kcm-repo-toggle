@@ -38,6 +38,7 @@
 #include <QFile>
 #include <QStandardPaths>
 #include <QVariantMap>
+#include <QPushButton>
 #include <QProgressBar>
 
 class Module::Private {
@@ -97,6 +98,15 @@ Module::~Module()
 
 void Module::Private::populateSources()
 {
+    // If the first item is a layout, it means we've got a progress bar thing, so get rid of that first
+    if(q->ui->verticalLayout->itemAt(0)->layout() != 0) {
+        QLayout* grid = q->ui->verticalLayout->itemAt(0)->layout();
+        while(grid->count() > 0) {
+            QLayoutItem* item = grid->takeAt(0);
+            delete item->widget();
+            delete item;
+        }
+    }
     // clear existing checkboxes, if there are any...
     while(q->ui->verticalLayout->count() > 0) {
         QLayoutItem* item = q->ui->verticalLayout->takeAt(0);
@@ -231,10 +241,16 @@ void Module::save()
         action.setArguments(helperargs);
         action.setTimeout(1000 * 60 * 20); // twenty minutes... TODO Add a way to cancel this action, because that's a long time...
 
+        QGridLayout* grid = new QGridLayout();
+        QLabel* pleaseWait = new QLabel(i18nc("Label above the progress bar when updating the sources after changing the settings", "Please wait while updating your package cache..."), this);
+        grid->addWidget(pleaseWait, 0, 0);
         d->progress = new QProgressBar(this);
         ui->verticalLayout->insertWidget(0, d->progress);
-        QLabel* pleaseWait = new QLabel(i18nc("Label above the progress bar when updating the sources after changing the settings", "Please wait while updating your package cache..."), this);
-        ui->verticalLayout->insertWidget(0, pleaseWait);
+        grid->addWidget(d->progress, 1, 0);
+        QPushButton* cancelRefresh = new QPushButton(this);
+        cancelRefresh->setIcon(QIcon::fromTheme("dialog-cancel"));
+        grid->addWidget(cancelRefresh, 0, 1, 2, 1);
+        ui->verticalLayout->insertLayout(0, grid);
 
         KAuth::ExecuteJob* saveJob = action.execute();
 
