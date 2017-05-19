@@ -1,3 +1,0 @@
-# Ubuntu Updates
-# Major bug fix updates produced after the final release
-deb http://archive.ubuntu.com/ubuntu/ xenial-updates main restricted universe multiverse

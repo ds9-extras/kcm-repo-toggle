@@ -1,3 +1,0 @@
-# Neon Backports
-# Offers newer versions of Plasma Desktop, KDE Applications and KDE Framework
-deb [arch=amd64] http://ds9-maui.s3-website.eu-central-1.amazonaws.com/maui-xenial-backports-neon/ xenial main 

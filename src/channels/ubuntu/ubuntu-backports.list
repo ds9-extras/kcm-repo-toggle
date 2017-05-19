@@ -1,3 +1,0 @@
-# Ubuntu Backports
-# Backports offers a way to selectively provide newer versions of software for older Ubuntu releases
-deb http://archive.ubuntu.com/ubuntu/ xenial-backports main restricted universe multiverse 

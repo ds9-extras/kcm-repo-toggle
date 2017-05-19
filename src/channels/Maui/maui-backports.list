@@ -1,3 +1,0 @@
-# Maui Backports
-# Offers newer versions of configuration and theming for Maui
-deb http://ds9-maui.s3-website.eu-central-1.amazonaws.com/maui-xenial-backports/ xenial main

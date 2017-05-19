@@ -130,27 +130,14 @@ void Module::Private::populateSources()
         }
     }
 
-    QString realOsName;   
     QString distro;
 
     OSRelease os;
     QStringList paths = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
     for(QString const& path : paths) {
         // One hard-coded channel, and one for the distribution we're actually running on
-        QStringList channelTypes = QStringList() << QString("%1/release-channels/channels/general-use").arg(path) << QString("%1/release-channels/channels/%2").arg(path).arg(os.name);
-        // Distinguish between Netrunner Desktop (os.name = "Netrunner") and Netrunner Core (os.name="Netrunner Core")
-        if(os.name.contains("Netrunner") && !os.name.contains("Core")) {
-            realOsName = QLatin1String("Netrunner Desktop");
-            channelTypes << QString("%1/release-channels/channels/%2").arg(path).arg(realOsName);
-        }
-        else if(os.name.contains("Netrunner") && os.name.contains("Core")) {
-            realOsName = QLatin1String("Netrunner Core");
-            channelTypes << QString("%1/release-channels/channels/%2").arg(path).arg(realOsName);
-        }
-        // end Distinguish Netrunner Desktop & Core
-        if (os.id.contains("ubuntu")) distro = "ubuntu";
-        else if (os.idLike.contains("debian") && !os.idLike.contains("ubuntu")) distro = "debian";
-        channelTypes << QString("%1/release-channels/channels/%2").arg(path).arg(distro);
+        QStringList channelTypes = QStringList() << QString("%1/release-channels/channels/general-use").arg(path) << QString("%1/release-channels/channels/%2").arg(path).arg(os.id);
+
         for(QString const &channelsPath : channelTypes) {
             QDir channels(channelsPath);
             if(channels.exists()) {
